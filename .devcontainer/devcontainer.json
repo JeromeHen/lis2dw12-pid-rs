@@ -1,0 +1,42 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/rust
+{
+	"name": "Rust",
+	"build": {
+		"dockerfile": "Dockerfile"
+	},
+	"customizations": {
+		"vscode": {
+			"settings": {
+				"editor.formatOnPaste": true,
+				"editor.formatOnSave": true,
+				"editor.formatOnSaveMode": "file",
+				"editor.formatOnType": true,
+				"lldb.executable": "/usr/bin/lldb",
+				"files.watcherExclude": {
+					"**/target/**": true
+				},
+				"[rust]": {
+					"editor.defaultFormatter": "rust-lang.rust-analyzer"
+				}
+			},
+			"extensions": [
+				"ChrisBeard.rustdocstring",
+				"fill-labs.dependi",
+				"github.vscode-github-actions",
+				"Gruntfuggly.todo-tree",
+				"ms-vscode.cpptools-extension-pack",
+				"mhutchie.git-graph",
+				"rust-lang.rust-analyzer",
+				"tamasfe.even-better-toml"
+			]
+		}
+	},
+	"postCreateCommand": "rustc --version",
+	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
+	// "remoteUser": "root"
+	"runArgs": [
+		"-v",
+		"${localEnv:HOME}/.ssh:/home/vscode/.ssh:cached"
+	]
+}

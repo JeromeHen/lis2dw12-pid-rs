@@ -1,0 +1,40 @@
+[package]
+name = "lis2dw12-pid-rs"
+version = "0.1.0"
+authors = ["Jérôme Hendrick <jerome.hendrick@gmail.com>"]
+edition = "2024"
+description = "Pure Rust driver for the LIS2DW12 accelerometer."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/JeromeHen/lis2dw12-pid-rs"
+homepage = "https://github.com/JeromeHen/lis2dw12-pid-rs#readme"
+documentation = "https://docs.rs/lis2dw12-pid-rs"
+keywords = ["embedded", "accelerometer", "lis2dw12", "no-std", "driver"]
+categories = ["embedded"]
+exclude = [
+    ".devcontainer/",
+    ".github/",
+    ".gitmodules",
+    "build.rs",
+    "lis2dw12-pid/",
+    "scripts/",
+    "tests/",
+]
+
+[dependencies]
+async-trait = { version = "0.1.89", optional = true }
+bitflags = "2.10.0"
+embedded-hal = { version = "1.0.0", optional = true }
+embedded-hal-async = { version = "1.0.0", optional = true }
+num_enum = { version = "0.7.5", default-features = false }
+
+[features]
+default = ["async"]
+async = ["embedded-hal-async", "async-trait"]
+blocking = ["embedded-hal"]
+
+[dev-dependencies]
+tokio = { version = "1.38", features = ["macros", "rt-multi-thread", "sync"] }
+
+[build-dependencies]
+bindgen = "0.72.1"
+cc = "1.0"
