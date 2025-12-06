@@ -1,6 +1,6 @@
 [package]
 name = "lis2dw12-pid-rs"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Jérôme Hendrick <jerome.hendrick@gmail.com>"]
 edition = "2024"
 description = "Pure Rust driver for the LIS2DW12 accelerometer."
