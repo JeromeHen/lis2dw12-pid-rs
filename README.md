@@ -35,17 +35,20 @@ This crate exposes a single high-level device object: `Lis2dw12<T>` where `T` is
 Transport
 ---------
 
-The crate uses a `Transport` trait to abstract bus access. Two variants of the trait exist depending on features:
+The crate uses a `Transport` trait to abstract bus access. There are a few feature-dependent transport shapes to be aware of:
 
 - Async mode (default): the `Transport` trait defines async `read_register` / `write_register` methods and `I2cTransport` wraps any `embedded-hal-async` I2C implementation.
-- Blocking mode (`--features blocking`): the crate defines a synchronous `Transport` trait for blocking builds but the blocking transport implementations are not yet provided by the crate. For example, the async `I2cTransport` is implemented for `embedded-hal-async` only — there is no built-in blocking `I2cTransport` (and SPI transports are still TODO). You can use the blocking feature by providing your own `Transport` implementation for your platform.
+- Shared-bus (default): the `shared-bus` feature adds the `embassy-sync` dependency and makes `I2cTransport.bus` a `Mutex<CriticalSectionRawMutex, I2C>` so the same underlying I2C instance can be safely shared across multiple drivers/tasks in an async executor. This is useful when multiple peripherals live on the same physical bus and you want task-safe access without cloning the bus.
+- Blocking mode (`--features blocking`): the crate defines a synchronous `Transport` trait for blocking builds but the crate currently does not provide built-in blocking `I2cTransport`/SPI implementations. If you need blocking transports, implement the `Transport` trait for your platform or supply a wrapper — PRs to add built-in blocking transports are welcome.
+
+If you need another type of transport logic, implement the `Transport` trait for your type and supply it to `Lis2dw12::new()`.
 
 Usage examples
 --------------
 
 These examples are intentionally minimal — supply a working platform-dependent I2C instance (async or blocking) when using in real firmware.
 
-Async example (default features)
+Async examples
 
 ```rust
 use lis2dw12_pid_rs::lis2dw12::Lis2dw12;
@@ -54,7 +57,12 @@ use lis2dw12_pid_rs::reg::LIS2DW12_ID;
 
 // `i2c` implements `embedded_hal_async::i2c::I2c`
 let i2c: YourAsyncI2c = /* ... */;
+// Instantiate device with I2C transport
 let mut dev = Lis2dw12::new(I2cTransport::new(i2c, 0x19));
+
+// Note: if you enable the `shared-bus` feature, the I2C transport can be setup like this:
+// let mutex = embassy_sync::mutex::Mutex::new(i2c);
+// let mut dev = Lis2dw12::new(I2cTransport::new(mutex, 0x19));
 
 // Reset device
 dev.reset_set(true).await.expect("i2c failed");
