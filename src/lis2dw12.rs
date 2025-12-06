@@ -2,7 +2,7 @@
 use crate::{error::Error, reg::*, transport::Transport};
 
 pub struct Lis2dw12<T> {
-    iface: T,
+    transport: T,
 }
 
 impl<T> Lis2dw12<T> {
@@ -10,9 +10,10 @@ impl<T> Lis2dw12<T> {
     ///
     /// # Arguments
     ///
-    /// - `iface` (`T`) - The type of transport interface (I2C, SPI / async, blocking)
-    pub fn new(iface: T) -> Self {
-        Lis2dw12 { iface }
+    /// - `transport` (`T`) - The type of transport interface (I2C, SPI / async, blocking /
+    /// ? shared-bus)
+    pub fn new(transport: T) -> Self {
+        Lis2dw12 { transport }
     }
 
     // TODO: add default address for I2C
@@ -21,7 +22,7 @@ impl<T> Lis2dw12<T> {
 impl<T> Lis2dw12<T> {
     /// Consume the Lis2dw12 driver instance and return the underlying transport instance.
     pub fn destroy(self) -> T {
-        self.iface
+        self.transport
     }
 }
 
@@ -159,7 +160,7 @@ where
     ///
     /// - `Result<(), Error>` - Ok() on success, or `Error::BusError`.
     pub async fn read_reg(&mut self, reg: u8, buf: &mut [u8]) -> Result<(), Error> {
-        self.iface
+        self.transport
             .read_register(reg, buf)
             .await
             .map_err(|_| Error::BusError)
@@ -176,7 +177,7 @@ where
     ///
     /// - `Result<(), Error>` - Ok() on success, or `Error::BusError`.
     pub async fn write_reg(&mut self, reg: u8, data: &[u8]) -> Result<(), Error> {
-        self.iface
+        self.transport
             .write_register(reg, data)
             .await
             .map_err(|_| Error::BusError)
