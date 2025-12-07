@@ -38,7 +38,7 @@ Transport
 The crate uses a `Transport` trait to abstract bus access. There are a few feature-dependent transport shapes to be aware of:
 
 - Async mode (default): the `Transport` trait defines async `read_register` / `write_register` methods and `I2cTransport` wraps any `embedded-hal-async` I2C implementation.
-- Shared-bus (default): the `shared-bus` feature adds the `embassy-sync` dependency and makes `I2cTransport.bus` a `Mutex<CriticalSectionRawMutex, I2C>` so the same underlying I2C instance can be safely shared across multiple drivers/tasks in an async executor. This is useful when multiple peripherals live on the same physical bus and you want task-safe access without cloning the bus.
+- Shared-bus (default): the `shared-bus` feature adds the `embassy-sync` dependency and makes `I2cTransport.bus` a `&Mutex<CriticalSectionRawMutex, RefCell<Option<I2C>>>` so the same underlying I2C instance can be safely shared across multiple drivers/tasks in an async executor. This is useful when multiple peripherals live on the same physical bus and you want task-safe access without cloning the bus.
 - Blocking mode (`--features blocking`): the crate defines a synchronous `Transport` trait for blocking builds but the crate currently does not provide built-in blocking `I2cTransport`/SPI implementations. If you need blocking transports, implement the `Transport` trait for your platform or supply a wrapper — PRs to add built-in blocking transports are welcome.
 
 If you need another type of transport logic, implement the `Transport` trait for your type and supply it to `Lis2dw12::new()`.
@@ -61,8 +61,14 @@ let i2c: YourAsyncI2c = /* ... */;
 let mut dev = Lis2dw12::new(I2cTransport::new(i2c, 0x19));
 
 // Note: if you enable the `shared-bus` feature, the I2C transport can be setup like this:
-// let mutex = embassy_sync::mutex::Mutex::new(i2c);
-// let mut dev = Lis2dw12::new(I2cTransport::new(mutex, 0x19));
+// static I2C_BUS: Mutex<CriticalSectionRawMutex, RefCell<Option<YourAsyncI2c>>> =
+//     Mutex::new(RefCell::new(None));
+
+// Put the I2C peripheral inside the bus before transport initialization
+// *I2C_BUS.lock().await.borrow_mut() = Some(i2c);
+
+// Build device using the shared-bus transport
+// let mut dev = Lis2dw12::new(I2cTransport::new(&I2C_BUS, 0x19));
 
 // Reset device
 dev.reset_set(true).await.expect("i2c failed");

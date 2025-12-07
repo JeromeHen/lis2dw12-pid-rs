@@ -1,5 +1,9 @@
 extern crate alloc;
 
+#[cfg(feature = "async")]
+#[cfg(feature = "shared-bus")]
+use core::cell::RefCell;
+
 use crate::error::Error;
 use alloc::boxed::Box;
 
@@ -45,12 +49,15 @@ pub trait Transport {
 }
 
 #[cfg(feature = "async")]
-pub struct I2cTransport<I2C> {
+pub struct I2cTransport<I2C>
+where
+    I2C: 'static, // Add the 'static bound for I2C
+{
     #[cfg(not(feature = "shared-bus"))]
     pub bus: I2C,
 
     #[cfg(feature = "shared-bus")]
-    pub bus: Mutex<CriticalSectionRawMutex, I2C>,
+    pub bus: &'static Mutex<CriticalSectionRawMutex, RefCell<Option<I2C>>>,
 
     pub address: u8,
 }
@@ -72,20 +79,23 @@ impl<I2C> I2cTransport<I2C> {
         Self { bus: i2c, address }
     }
 
-    /// Create a new async I2C transport wrapper using the provided Mutex wrapped I2C instance and
+    /// Create a new async I2C transport wrapper using the provided ref Mutex, RefCell and Option wrapped I2C and
     /// device address.
     ///
     /// # Arguments
     ///
-    /// - `i2c` (`Mutex<CriticalSectionRawMutex, I2C>`) - Async Mutex wrapped I2C instance
+    /// - `i2c` (`&Mutex<CriticalSectionRawMutex, RefCell<Option<I2C>>>`) - Async ref Mutex + RefCell + Option wrapped I2C
     /// implementing `embedded_hal_async::i2c::I2c`.
     /// - `address` (`u8`) - 7-bit device address.
     ///
     /// # Returns
     ///
-    /// - `Self` - A new `I2cTransport` wrapping the Mutex'd `i2c` instance.
+    /// - `Self` - A new `I2cTransport` wrapping the ref Mutex + RefCell + Option `i2c`.
     #[cfg(feature = "shared-bus")]
-    pub fn new(i2c: Mutex<CriticalSectionRawMutex, I2C>, address: u8) -> Self {
+    pub fn new(
+        i2c: &'static Mutex<CriticalSectionRawMutex, RefCell<Option<I2C>>>,
+        address: u8,
+    ) -> Self {
         Self { bus: i2c, address }
     }
 }
@@ -118,6 +128,9 @@ where
             self.bus
                 .lock()
                 .await
+                .borrow_mut()
+                .as_mut()
+                .unwrap()
                 .write(self.address, &buf[..=data.len()])
                 .await
                 .map_err(|_| Error::BusError)
@@ -138,11 +151,12 @@ where
             self.bus
                 .lock()
                 .await
+                .borrow_mut()
+                .as_mut()
+                .unwrap()
                 .write_read(self.address, &[reg], buf)
                 .await
                 .map_err(|_| Error::BusError)
         }
     }
 }
-
-// TODO: SPI transport is intentionally left unimplemented here — contributions welcome.
