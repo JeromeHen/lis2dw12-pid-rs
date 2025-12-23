@@ -1,6 +1,9 @@
 use bitflags::bitflags;
 use num_enum::TryFromPrimitive;
 
+/// I2C address for the device
+pub const LIS2DW12_I2C_ADDR: u8 = 0x19;
+
 // Register addresses (taken from the C header)
 pub const LIS2DW12_OUT_T_L: u8 = 0x0D;
 pub const LIS2DW12_OUT_T_H: u8 = 0x0E;
@@ -69,8 +72,7 @@ bitflags! {pub struct Ctrl4Int1: u8 {
     const INT1_WU = 1 << 5;
     const INT1_SINGLE_TAP = 1 << 6;
     const INT1_6D = 1 << 7;
-}
-}
+}}
 
 bitflags! {pub struct Fds : u8 {
     const LPF_ON_OUT = 0x00; // default, no flags
@@ -87,8 +89,7 @@ bitflags! {pub struct Ctrl5Int2: u8 {
     const INT2_BOOT = 1 << 5;
     const INT2_SLEEP_CHG = 1 << 6;
     const INT2_SLEEP_STATE = 1 << 7;
-}
-}
+}}
 
 bitflags! {pub struct CtrlReg7: u8 {
     const LPASS_ON_6D = 1 << 0; // lpass_on6d
@@ -457,8 +458,7 @@ bitflags! {pub struct TapSrc: u8 {
     const DOUBLE_TAP = 1 << 4;
     const SINGLE_TAP = 1 << 5;
     const TAP_IA = 1 << 6;
-}
-}
+}}
 
 bitflags! {pub struct SixdSrc: u8 {
     const XL = 1 << 0;
@@ -468,5 +468,4 @@ bitflags! {pub struct SixdSrc: u8 {
     const ZL = 1 << 4;
     const ZH = 1 << 5;
     const SIXD_IA = 1 << 6;
-}
-}
+}}

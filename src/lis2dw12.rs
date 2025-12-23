@@ -11,7 +11,7 @@ impl<T> Lis2dw12<T> {
     /// # Arguments
     ///
     /// - `transport` (`T`) - The type of transport interface (I2C, SPI / async, blocking /
-    /// ? shared-bus)
+    ///   ? shared-bus)
     pub fn new(transport: T) -> Self {
         Lis2dw12 { transport }
     }
