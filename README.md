@@ -1,59 +1,82 @@
 # lis2dw12-pid-rs
 
-[![crates.io](https://img.shields.io/crates/v/lis2dw12-pid-rs.svg)](https://crates.io/crates/lis2dw12-pid-rs) [![docs.rs](https://img.shields.io/docsrs/lis2dw12-pid-rs)](https://docs.rs/lis2dw12-pid-rs) [![CI](https://github.com/JeromeHen/lis2dw12-pid-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/JeromeHen/lis2dw12-pid-rs/actions)
-# LIS2DW12 Rust Driver
+[![crates.io](https://img.shields.io/crates/v/lis2dw12-pid-rs.svg)](https://crates.io/crates/lis2dw12-pid-rs)
+[![docs.rs](https://docs.rs/lis2dw12-pid-rs/badge.svg)](https://docs.rs/lis2dw12-pid-rs)
+[![CI](https://github.com/JeromeHen/lis2dw12-pid-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/JeromeHen/lis2dw12-pid-rs/actions)
+[![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20%7C%20Apache--2.0-blue.svg)](./LICENSE)
 
-Pure-Rust, no_std (with alloc) driver for the ST LIS2DW12 3-axis accelerometer.
+## LIS2DW12 Rust Driver
 
-This crate is a low-level, register-oriented implementation of the LIS2DW12 driver.
-It is a manual reimplementation of the original C reference driver 
-(maintained in the excluded `lis2dw12-pid/` folder and available at [STMicroelectronics lis2dw12-pid](https://github.com/STMicroelectronics/lis2dw12-pid)) 
-and includes parity tests to ensure the behavior matches the C implementation.
+Pure-Rust, `no_std` (with `alloc`) driver for the ST LIS2DW12 3-axis accelerometer.
 
-The original C driver is licensed under BSD-3-Clause. This Rust crate is licensed under MIT OR Apache-2.0.
+This crate is a low-level, register-oriented implementation derived from the original C reference driver [STMicroelectronics lis2dw12-pid](https://github.com/STMicroelectronics/lis2dw12-pid) (included under `lis2dw12-pid/`). It exposes a compact, register-centric API and a small transport abstraction so you can plug in your preferred I2C or SPI implementation.
 
+This Rust crate is licensed under MIT OR Apache-2.0.
 
-Key design goals
-- no_std-compatible (uses alloc) so it can be used on constrained targets
-- async-by-default API (feature-gated); a `blocking` feature is also available
-- small and explicit register-level API that directly mirrors the C driver
-- comprehensive tests and host parity tests against the original C driver
+## Design Goals
+- `no_std` compatible (with `alloc`)
+- Async-by-default API (feature-gated); a `blocking` feature is available
+- Small, explicit register-level API that mirrors the C reference behavior
+- Transport-agnostic: users provide the concrete bus implementation
+- Host parity tests to ensure behavior matches the original C driver
 
-Crate features
-- `default` = `async` (uses `embedded-hal-async` + `async-trait`)
-- `blocking` = blocking transports using `embedded-hal`
-  
-    Note: the `blocking` feature exists in Cargo.toml but is currently only partially implemented. The crate defines the synchronous `Transport` trait used for blocking builds, but there is no built-in blocking `I2cTransport` implementation yet (the included `I2cTransport` is async-only). SPI support is also TODO. If you need blocking I2C/SPI today you will need to implement a small wrapper that implements the `Transport` trait for your platform — PRs to add a full blocking transport are very welcome.
+## Crate Features
 
-License: MIT OR Apache-2.0 — see `LICENSE`.
+- `async` — enable asynchronous transport support (enabled by default, asynchronous `Transport` trait)
+- `blocking` — enable blocking transport support (synchronous `Transport` trait)
+- `shared-bus` — optional shared-bus support when using async transports (uses `embassy-sync` mutex types)
 
-Quick overview
----------------
+## Quick Overview
 
-This crate exposes a single high-level device object: `Lis2dw12<T>` where `T` is the transport implementation. The crate also exposes a small set of register constants, bitflags and helper newtypes in `reg` for working with compact bitfields.
+High-level device object: `Lis2dw12<T>`, where `T` is a transport implementation. The `reg` module exports register addresses, bitflags and small newtypes (enums and wrappers) for type-safe register manipulation.
 
-Transport
----------
+Common items:
 
-The crate uses a `Transport` trait to abstract bus access. There are a few feature-dependent transport shapes to be aware of:
+- `lis2dw12_pid_rs::Lis2dw12` — main driver type
+- `lis2dw12_pid_rs::transport::I2cTransport` — provided async/blocking I2C transport adapter
+- `lis2dw12_pid_rs::reg::LIS2DW12_I2C_ADDR` — default 7-bit I2C address
 
-- Async mode (default): the `Transport` trait defines async `read_register` / `write_register` methods and `I2cTransport` wraps any `embedded-hal-async` I2C implementation.
-- Shared-bus (default): the `shared-bus` feature adds the `embassy-sync` dependency and makes `I2cTransport.bus` a `Mutex<CriticalSectionRawMutex, I2C>` so the same underlying I2C instance can be safely shared across multiple drivers/tasks in an async executor. This is useful when multiple peripherals live on the same physical bus and you want task-safe access without cloning the bus.
-- Blocking mode (`--features blocking`): the crate defines a synchronous `Transport` trait for blocking builds but the crate currently does not provide built-in blocking `I2cTransport`/SPI implementations. If you need blocking transports, implement the `Transport` trait for your platform or supply a wrapper — PRs to add built-in blocking transports are welcome.
+## API highlights
 
-If you need another type of transport logic, implement the `Transport` trait for your type and supply it to `Lis2dw12::new()`.
+Below are common operations you'll use when integrating this driver:
 
-Usage examples
---------------
+- Construction
+    - `Lis2dw12::new(transport)` — create the device instance
+    - `Lis2dw12::destroy(self)` — consume driver and return underlying transport
 
-These examples are intentionally minimal — supply a working platform-dependent I2C instance (async or blocking) when using in real firmware.
+- Device info
+    - `device_id_get()` — read `WHO_AM_I` / device id
 
-Async examples
+- Power, mode & filters
+    - power/mode setters/getters (power mode, low-noise flags, sleep/standby)
+    - `filter_path_set()` / `filter_path_get()` — configure output filter path
+
+- Data & conversions
+    - `acceleration_raw_get()` — read raw X/Y/Z samples
+    - conversion helpers (e.g. `from_fs16_to_mg`) for converting LSB -> mg
+
+- Interrupts & events
+    - wake-up, tap, free-fall, six-d detection setters/getters
+    - interrupt routing and status helpers
+
+- FIFO & timestamps
+    - FIFO configuration and sample count helpers
+
+The `reg` module contains enums like `Odr`, `Fs`, `Fmode`, and newtypes like `WkupDur`, `TapThreshold` to help pack/unpack bitfields.
+
+## Transport Abstraction
+
+`Lis2dw12<T>` is generic over a `Transport` implementation (see `src/transport.rs`). The crate ships an async/blocking `I2cTransport` and an async/blocking `SpiTransport` that wraps an `embedded-hal-async`-compatible I2C or SPI buses and the default I2C address `reg::LIS2DW12_I2C_ADDR`.
+
+- Without `shared-bus`: pass your concrete I2C implementation directly.
+- With `shared-bus`: pass a shared/mutex-wrapped bus or mutex+refcell wrapped (uses `embassy-sync` types when enabled).
+
+## Examples
+
+Minimal I2C async example (replace `...` with your platform's I2C type). You can easily adapt this to blocking or SPI usage by using the corresponding transport types and compile features.
 
 ```rust
-use lis2dw12_pid_rs::lis2dw12::Lis2dw12;
-use lis2dw12_pid_rs::transport::I2cTransport;
-use lis2dw12_pid_rs::reg::LIS2DW12_ID;
+use lis2dw12_pid_rs::{lis2dw12::Lis2dw12, transport::I2cTransport, reg::LIS2DW12_ID};
 
 // `i2c` implements `embedded_hal_async::i2c::I2c`
 let i2c: YourAsyncI2c = /* ... */;
@@ -89,41 +112,21 @@ let raw = dev.acceleration_raw_get().await.expect("i2c failed"); // [i16; 3]
 let data_g = raw.map(|v| Lis2dw12::from_fs2_to_mg(v) / 1000.0);
 ```
 
-API highlights
---------------
+The blocking usage is similar but requires a blocking `Transport` implementation.
 
-- Lis2dw12::new(iface) — construct the driver with your transport
-- read_reg / write_reg — low-level register operations
-- device_id_get() — WHO_AM_I (device id)
-- acceleration_raw_get() — read raw X/Y/Z samples
-- conversion helpers — from_fs2_to_mg, from_fs4_to_mg, from_lsb_to_celsius, etc.
-- numerous register-level setters/getters for power mode, filters, FIFO, taps, wake-up, interrupts and more
+## Testing & Parity
 
-Testing & parities
--------------------
+Unit tests use a memory-backed `MemTransport` to emulate registers. Parity tests in `tests/parity.rs` compare the Rust implementation against the original C reference in `lis2dw12-pid/`. `build.rs` will compile the C driver for host tests when running `cargo test` on a host system.
 
-The repository includes unit tests that use a small `MemTransport`-style memory-backed transport to emulate device registers. In addition, there are parity tests under `tests/parity.rs` that compile and use the original C reference implementation (contained in `lis2dw12-pid/`) and compare results to the Rust port. `build.rs` will compile that C library for host tests, so running `cargo test` on a host should exercise parity.
+## Contributing
 
-Examples & integration
-----------------------
+Contributions are welcome — PRs that add missing register APIs, improve parity coverage, or improve docs/examples are appreciated. If you change register mappings or behavior, update `tests/parity.rs` so host parity tests remain meaningful.
 
-This repository focuses on a small, low-level driver for platform authors. For embedded applications, wiring and runtime setup (RTOS/async executor) is platform-specific. Integrating the driver typically looks like:
+## License
 
-1. Provide an I2C (or SPI) implementation that implements the crate's `Transport` trait.
-2. Construct `Lis2dw12` with your transport and call async methods in an executor (or a blocking transport on blocking builds).
+Dual-licensed under MIT OR Apache-2.0 — see `LICENSE` for details.
 
-Contributing
-------------
-
-Contributions are welcome — PRs that add missing register APIs, improve parity coverage, add a SPI transport implementation (TODO in repo), or improve docs/tests are especially appreciated. See the `lis2dw12-pid/` folder for the original C driver used for parity.
-
-License
--------
-
-The crate is dual-licensed under MIT or Apache-2.0 — see `LICENSE` for details.
-
-Contact / Author
-----------------
+## Contact / Author
 
 Author: Jérôme Hendrick <jerome.hendrick@gmail.com>
 
